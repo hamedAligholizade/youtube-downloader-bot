@@ -1,34 +1,41 @@
-const play = require('play-dl');
+const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 // Function to get video info and available formats
 async function getVideoInfo(url) {
     try {
-        const info = await play.video_info(url);
-        const formats = info.format;
+        // Use yt-dlp to get video info
+        const { stdout } = await execPromise(`yt-dlp -j "${url}"`);
+        const info = JSON.parse(stdout);
         
         // Get video formats (mp4)
-        const videoFormats = formats
-            .filter(format => format.mimeType?.includes('video/mp4') && format.hasAudio)
+        const videoFormats = info.formats
+            .filter(format => 
+                format.ext === 'mp4' && 
+                format.acodec !== 'none' && 
+                format.vcodec !== 'none'
+            )
             .map(format => ({
-                quality: format.qualityLabel,
-                format_id: format.itag,
-                size: format.contentLength
+                quality: format.height ? `${format.height}p` : format.format_note,
+                format_id: format.format_id,
+                size: format.filesize
             }));
 
-        // Get audio formats
+        // Add audio option
         const audioFormats = [{
             quality: 'audio',
-            format_id: 'audio',
+            format_id: 'ba',  // best audio
             size: null
         }];
 
         return {
-            title: info.video_details.title,
-            thumbnail: info.video_details.thumbnail.url,
-            duration: info.video_details.durationInSec,
+            title: info.title,
+            thumbnail: info.thumbnail,
+            duration: info.duration,
             formats: [...videoFormats, ...audioFormats]
         };
     } catch (error) {
@@ -40,28 +47,21 @@ async function getVideoInfo(url) {
 // Function to download video
 async function downloadVideo(url, format_id, isAudio = false) {
     try {
-        const info = await play.video_info(url);
-        const videoTitle = info.video_details.title.replace(/[^a-zA-Z0-9]/g, '_');
         const tempDir = os.tmpdir();
-        const outputPath = path.join(tempDir, `${videoTitle}_${Date.now()}.${isAudio ? 'mp3' : 'mp4'}`);
+        const timestamp = Date.now();
+        const outputPath = path.join(tempDir, `video_${timestamp}.${isAudio ? 'mp3' : 'mp4'}`);
+        
+        // Construct yt-dlp command
+        const format = isAudio ? 'ba' : format_id;
+        const command = isAudio
+            ? `yt-dlp -f ${format} -x --audio-format mp3 -o "${outputPath}" "${url}"`
+            : `yt-dlp -f ${format} -o "${outputPath}" "${url}"`;
 
-        if (isAudio) {
-            const stream = await play.stream_from_info(info, { quality: 140 }); // 140 is audio-only format
-            return new Promise((resolve, reject) => {
-                const writeStream = fs.createWriteStream(outputPath);
-                stream.stream.pipe(writeStream)
-                    .on('finish', () => resolve(outputPath))
-                    .on('error', reject);
-            });
-        } else {
-            const stream = await play.stream_from_info(info, { quality: parseInt(format_id) });
-            return new Promise((resolve, reject) => {
-                const writeStream = fs.createWriteStream(outputPath);
-                stream.stream.pipe(writeStream)
-                    .on('finish', () => resolve(outputPath))
-                    .on('error', reject);
-            });
-        }
+        // Execute download
+        await execPromise(command);
+        
+        // Return the path to the downloaded file
+        return outputPath;
     } catch (error) {
         console.error('Error downloading video:', error);
         throw error;

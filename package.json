@@ -5,15 +5,13 @@
   "main": "src/bot.js",
   "scripts": {
     "start": "node src/bot.js",
-    "dev": "nodemon src/bot.js"
+    "dev": "nodemon src/bot.js",
+    "setup": "curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod a+rx /usr/local/bin/yt-dlp"
   },
   "dependencies": {
     "dotenv": "^16.0.3",
     "node-telegram-bot-api": "^0.61.0",
-    "pg": "^8.10.0",
-    "ytdl-core": "^4.11.5",
-    "play-dl": "^1.9.7",
-    "ffmpeg-static": "^5.2.0"
+    "pg": "^8.10.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
