@@ -12,8 +12,8 @@ RUN apk add --no-cache \
     openssl \
     aria2
 
-# Install yt-dlp using pip (more reliable than direct download)
-RUN pip3 install --no-cache-dir yt-dlp
+# Install yt-dlp using pip and upgrade to latest version
+RUN pip3 install --no-cache-dir --upgrade yt-dlp
 
 # Install Node.js dependencies
 COPY package*.json ./
@@ -21,5 +21,5 @@ RUN npm install
 
 COPY . .
 
-# Update yt-dlp on container start
-CMD yt-dlp --update-to nightly && npm start 
+# Start the application
+CMD ["npm", "start"] 
