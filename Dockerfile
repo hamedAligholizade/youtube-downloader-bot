@@ -10,13 +10,13 @@ RUN apk add --no-cache \
     curl \
     ca-certificates \
     openssl \
-    aria2
+    aria2 \
+    gcc \
+    musl-dev \
+    python3-dev
 
 # Install yt-dlp using pip and upgrade to latest version
-RUN pip3 install --no-cache-dir --upgrade yt-dlp
-
-# Create empty cookies file
-RUN touch /app/cookies.txt
+RUN pip3 install --no-cache-dir --upgrade yt-dlp requests
 
 # Install Node.js dependencies
 COPY package*.json ./
@@ -24,9 +24,6 @@ RUN npm install
 
 # Copy application files
 COPY . .
-
-# Ensure cookies file exists and has correct permissions
-RUN touch /app/cookies.txt && chmod 644 /app/cookies.txt
 
 # Start the application
 CMD ["npm", "start"] 
