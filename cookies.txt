@@ -1,0 +1,4 @@
+# Netscape HTTP Cookie File
+# This is a generated file!  Do not edit.
+# Please paste your YouTube cookies here in Netscape format.
+# You can get them using a browser extension like "Get cookies.txt" 

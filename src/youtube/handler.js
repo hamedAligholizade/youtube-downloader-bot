@@ -14,7 +14,7 @@ const YT_DLP_OPTIONS = [
     '--geo-bypass',
     '--ignore-errors',
     '--no-playlist',
-    '--prefer-insecure',
+    '--cookies /app/cookies.txt',
     '--format-sort quality',
     '--user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"',
     '--add-header "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"',
@@ -24,40 +24,55 @@ const YT_DLP_OPTIONS = [
 // Function to get video info and available formats
 async function getVideoInfo(url) {
     try {
-        // Use yt-dlp to get video info with additional options
-        const { stdout } = await execPromise(`yt-dlp ${YT_DLP_OPTIONS} --dump-json "${url}"`);
-        const info = JSON.parse(stdout);
-        
-        // Get video formats (mp4)
-        const videoFormats = info.formats
-            .filter(format => 
-                format.ext === 'mp4' && 
-                format.acodec !== 'none' && 
-                format.vcodec !== 'none'
-            )
-            .map(format => ({
-                quality: format.height ? `${format.height}p` : format.format_note,
-                format_id: format.format_id,
-                size: format.filesize
-            }));
-
-        // Add audio option
-        const audioFormats = [{
-            quality: 'audio',
-            format_id: 'bestaudio/best',  // best audio quality
-            size: null
-        }];
-
-        return {
-            title: info.title,
-            thumbnail: info.thumbnail,
-            duration: info.duration,
-            formats: [...videoFormats, ...audioFormats]
-        };
+        // First try without cookies
+        try {
+            const { stdout } = await execPromise(`yt-dlp ${YT_DLP_OPTIONS} --dump-json "${url}"`);
+            const info = JSON.parse(stdout);
+            return processVideoInfo(info);
+        } catch (error) {
+            // If cookies file doesn't exist or is empty, throw the original error
+            if (!fs.existsSync('/app/cookies.txt') || fs.readFileSync('/app/cookies.txt', 'utf8').trim() === '') {
+                throw new Error('YouTube requires authentication. Please provide cookies in cookies.txt file.');
+            }
+            // Try again with cookies
+            const { stdout } = await execPromise(`yt-dlp ${YT_DLP_OPTIONS} --dump-json "${url}"`);
+            const info = JSON.parse(stdout);
+            return processVideoInfo(info);
+        }
     } catch (error) {
         console.error('Error getting video info:', error);
         throw error;
     }
+}
+
+// Helper function to process video info
+function processVideoInfo(info) {
+    // Get video formats (mp4)
+    const videoFormats = info.formats
+        .filter(format => 
+            format.ext === 'mp4' && 
+            format.acodec !== 'none' && 
+            format.vcodec !== 'none'
+        )
+        .map(format => ({
+            quality: format.height ? `${format.height}p` : format.format_note,
+            format_id: format.format_id,
+            size: format.filesize
+        }));
+
+    // Add audio option
+    const audioFormats = [{
+        quality: 'audio',
+        format_id: 'bestaudio/best',  // best audio quality
+        size: null
+    }];
+
+    return {
+        title: info.title,
+        thumbnail: info.thumbnail,
+        duration: info.duration,
+        formats: [...videoFormats, ...audioFormats]
+    };
 }
 
 // Function to download video
